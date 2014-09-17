@@ -15,7 +15,7 @@ if (len(args) == 1):
 elif (len(args) == 0):
     raise ValueError("The input argument (input file name) is missing.")
 else:
-    raise ValueError("Too many input arguments")
+    raise ValueError("Too many input arguments provided!")
 
 conf = import_file(input_file)
 
