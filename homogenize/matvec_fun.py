@@ -75,6 +75,37 @@ def enlarge(xN, M):
         raise NotImplementedError()
     return xM
 
+def restrict(xN, M):
+    """
+    Restrict an array making Fourier coefficients by zeros for high frequency.
+
+    Parameters
+    ----------
+    xN : numpy.ndarray of shape = N
+        input array that is to be restricted
+
+    Returns
+    -------
+    xM : numpy.ndarray of shape = M
+        output array that is restricted
+    M : array like
+        number of grid points
+    """
+    xM = np.zeros(M, dtype=xN.dtype)
+    M = np.array(M)
+    N = np.array(np.shape(xN))
+    if np.allclose(M, N):
+        return xN
+    dim = np.size(N)
+    ibeg = (N-M+(M % 2))/2
+    iend = (N+M+(M % 2))/2
+    if dim == 2:
+        xM = xN[ibeg[0]:iend[0], ibeg[1]:iend[1]]
+    elif dim == 3:
+        xN = xM[ibeg[0]:iend[0], ibeg[1]:iend[1], ibeg[2]:iend[2]]
+    else:
+        raise NotImplementedError()
+    return xM
 
 def enlarge_M(xN, M):
     """

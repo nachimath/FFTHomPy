@@ -7,7 +7,7 @@ relating operators for homogenization.
 import numpy as np
 import homogenize.projections as proj
 from homogenize.trigonometric import TrigPolynomial
-from homogenize.matvec_fun import enlarge, enlarge_M, get_inverse
+from homogenize.matvec_fun import enlarge, restrict, enlarge_M, get_inverse
 
 
 class FieldFun():
@@ -264,6 +264,59 @@ class VecTri(FieldFun, TrigPolynomial):
             for m in np.arange(self.d):
                 val[m] = enlarge(self.val[m], M)
         return VecTri(name=self.name, val=val, Fourier=self.Fourier)
+
+    def restrict(self, M, typ='own'):
+        if typ is 'own':
+            if np.allclose(self.N, M):
+                return self
+            val = np.zeros(np.hstack([self.d, M]), dtype=self.val.dtype)
+            if self.Fourier is False:
+                for m in np.arange(self.d):
+                    val[m] = restrictF(self.val[m], M)
+            else:
+                for m in np.arange(self.d):
+                    val[m] = restrict(self.val[m], M)
+            return VecTri(self.name, val=val, Fourier=self.Fourier)
+        elif typ is 'vainikko':
+            xM = VecTri(N=M, valtype='0')
+            val = np.zeros(np.hstack([xM.d, M]), dtype=self.val.dtype)
+            for m in np.arange(self.d):
+                M = np.array(M)
+                N = np.array(np.shape(self[m]))
+                if np.allclose(M, N):
+                    xM[m] = self[m]
+                dim = np.size(N)
+                if dim == 2:
+                    xM.val[m] = self[m][1::2, 1::2]
+                elif dim == 3:
+                    xM.val[m] = self[m][1::2, 1::2, 1::2]
+                else:
+                    raise NotImplementedError()
+
+            return xM
+#             xM = VecTri(N=M, valtype='0')
+#             for m in np.arange(self.d):
+#                 M = np.array(M)
+#                 N = np.array(np.shape(xN[m]))
+#             if np.allclose(M, N):
+#                 xM[m] = xN[m]
+#                 dim = np.size(N)
+#                 ibeg = (N-M+(M % 2))/2
+#                 iend = (N+M+(M % 2))/2
+#                 if dim == 2:
+#                     for i in np.arange(M[0]):
+#                         for j in np.arange(M[0]):
+#                             xM[m][i, j] = xN[m][2*i+1, 2*j+1]
+#                 elif dim == 3:
+#                     for i in np.arange(M[0]):
+#                         for j in np.arange(M[0]):
+#                             for k in np.arange(M[0]):
+#                                 xM[m][i, j, k] = xN[m][2*i+1, 2*j+1, 2*k+1]
+#                 else:
+#                     raise NotImplementedError()
+#                     xM[m] = xN[m]
+        else:
+            raise ValueError()
 
     def mulTri(self, y, resize=True):
         if isinstance(y, VecTri):
@@ -1021,6 +1074,30 @@ def enlargeF(xN, M):
     N = np.array(np.shape(xN))
     M = np.array(M, dtype=np.int32)
     FxM = enlarge(DFT.fftnc(xN, N)*np.float(np.prod(M))/np.prod(N), M)
+    xM = np.real(DFT.ifftnc(FxM, M))
+    return xM
+
+def restrictF(xN, M):
+    """
+    It restricts an array of grid values. First, Fourier coefficients are
+    calculated and restricted to small frequencies. Then an inverse DFT
+    provides the grid values on required grid.
+
+    Parameters
+    ----------
+    xN : numpy.ndarray of shape = N
+        input array that is to be restricted
+
+    Returns
+    -------
+    xM : numpy.ndarray of shape = M
+        output array that is restricted
+    M : array like
+        number of grid points
+    """
+    N = np.array(np.shape(xN))
+    M = np.array(M, dtype=np.int32)
+    FxM = restrict(DFT.fftnc(xN, N)*np.float(np.prod(M))/np.prod(N), M)
     xM = np.real(DFT.ifftnc(FxM, M))
     return xM
 

@@ -44,7 +44,7 @@ materials = {'square': {'inclusions': ['square', 'otherwise'],
                            },
              }
 
-N = np.array([5, 5])
+N = np.array([10, 10])
 
 problems = [
     {'name': 'prob1',

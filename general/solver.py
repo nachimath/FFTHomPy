@@ -36,14 +36,14 @@ def linear_solver(Afun=None, ATfun=None, B=None, x0=None, par=None,
 
 
 def richardson(Afun, B, x0, par=None, callback=None):
-    alp = 1./par['alpha']
+    omeg = 1./par['alpha']
     res = {'norm_res': 1.,
            'kit': 0}
     x = x0
     while (res['norm_res'] > par['tol'] and res['kit'] < par['maxiter']):
         res['kit'] += 1
         x_prev = x
-        x = x - alp*(Afun(x) - B)
+        x = x - omeg*(Afun(x) - B)
         res['norm_res'] = (x_prev-x).norm()
         callback(x)
     return x, res

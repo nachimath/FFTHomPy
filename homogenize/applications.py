@@ -83,7 +83,89 @@ def scalar(problem):
             print 'solver : %s' % pb.solver['kind']
             X, info = linear_solver(solver=pb.solver['kind'], Afun=Afun, B=B,
                                     x0=x0, par=pb.solver, callback=cb)
+            # solver in Fourier coefficents
+#             hAfun = LinOper(name='FiGFA', mat=[[hG1N, FN, A, FiN]])
+#             hB = FN*B
+#             x0 = VecTri(name='x0', N=Nbar, Fourier=True)
+#             hcb = CallBack(A=hAfun, B=hB)
+#             hX, hinfo = linear_solver(solver='CG', Afun=hAfun, B=hB,
+#                                       x0=x0, par=pb.solver, callback=hcb)
+#             print hinfo
+#             X2 = FiN*hX
+#             print X == X2
+#             print 'end'
+            ######################################
+            # multigrid solver here
+            N = pb.solve['N']
+            Nh = pb.solve['N']/2
 
+            # Fourier projections
+            _, hG1, hG2 = proj.scalar(Nh, pb.Y, centered=True, NyqNul=True)
+            del _
+            hG1Nh = Matrix(name='hG1', val=hG1, Fourier=True)
+            hG2Nh = Matrix(name='hG1', val=hG2, Fourier=True)
+ 
+            if pb.solve['kind'] is 'GaNi':
+                Nhbar = pb.solve['N']/2
+            elif pb.solve['kind'] is 'Ga':
+                Nhbar = 2*pb.solve['N']/2 - 1
+                hG1Nh = hG1Nh.resize(Nhbar)
+                hG2Nh = hG2Nh.resize(Nhbar)
+
+            FNh = DFT(name='FN', inverse=False, N=Nhbar)
+            FiNh = DFT(name='FiN', inverse=True, N=Nhbar)
+
+#             G1Nh = LinOper(name='G1', mat=[[FiNh, hG1Nh, FNh]])
+#             G2Nh = LinOper(name='G2', mat=[[FiNh, hG2Nh, FNh]])
+            # material
+            if pb.solve['kind'] is 'GaNi':
+                ANh = mat.get_A_GaNi(Nh, primaldual)
+            elif pb.solve['kind'] is 'Ga':
+                if 'M' in pb.solve:
+                    M = pb.solve['M']
+                else:
+                    M = None
+                ANh = mat.get_A_Ga(Nbar=Nhbar, order=pb.solve['order'], M=M,
+                                   primaldual=primaldual)
+#             M =  N/2
+#             TNf = hG1N*FN*AN*FiN
+#             TMf = (1/alph)*enlarge(hG1M*FM*AM*FiM*restrict(xN))
+#             TNf = (1/alph)*hG1N*FN*AN*FiN
+            BNh = LinOper(name='G1', mat=[[hG1Nh, FNh, ANh, FiNh]])
+            BN = LinOper(name='G1', mat=[[hG1N, FN, A, FiN]])
+            iter = 0
+            resnorm = 1.
+            x = FN*EN
+            alp = pb.solver['alpha']
+            while (resnorm > 1e-6 and iter < 1e2):
+                iter += 1
+#                 xNh = x.restrict(Nh)
+#                 val = BNh(xNh)
+#                 valN = val.enlarge(N)
+                y = 1. / alp * (BN(x) - BNh(x.restrict(Nh)).enlarge(N))
+                x_prev = x
+                b = 1. / alp * BNh(y.restrict(Nh))
+#                 X, info = linear_solver(solver='CG', Afun=Afun, B=B,
+#                                     x0=x0, par=pb.solver, callback=cb)
+                hAfun = LinOper(name='FiGFA', mat=[[hG1Nh, FNh, ANh, FiNh]])
+                hB = FNh*B
+#                 HAfun = LinOper(name='I-FiGFA', mat=[[hAfun], [-hB]])
+                x0 = VecTri(name='x0', N=Nhbar, Fourier=True)
+                hcb = CallBack(A=hAfun, B=b)
+                xNh, hinfo = linear_solver(solver='CG', Afun=hAfun, B=b,
+                                            x0=x0, par=pb.solver, callback=hcb)
+#                 Hcb = CallBack(A=HAfun, B=b)
+#                 xNh, hinfo = linear_solver(solver='CG', Afun=HAfun, B=b,
+#                                            x0=x0, par=pb.solver, callback=Hcb)
+                x = y + xNh.enlarge(N)
+                resnorm = (x-x_prev).norm()
+
+            print 'resnorm', resnorm
+            print 'iter', iter
+            X2 = FiN*x
+            print X == X2
+            print 'end'
+            ############################
             solutions[iL] = add_macro2minimizer(X, E)
             results[iL] = {'cb': cb, 'info': info}
             print cb
